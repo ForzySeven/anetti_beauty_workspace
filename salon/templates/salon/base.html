@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anetti Beauty</title>
+    <style>
+        :root {
+            --bg-dark: #0d0608;
+            --burgundy-deep: #2a0e16;
+            --burgundy-accent: #7a283c;
+            --burgundy-btn: #8c3a4d;
+            --burgundy-btn-hover: #a3485d;
+            --text-main: #f5ecef;
+            --text-muted: #a69298;
+            --border-glass: rgba(255, 255, 255, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* --- АНІМОВАНИЙ ГРАДІЄНТ НА ФОНІ --- */
+        .bg-glow-1, .bg-glow-2 {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: 0.55;
+            z-index: 0;
+            pointer-events: none;
+            animation: moveGlow 18s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .bg-glow-1 {
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, var(--burgundy-accent) 0%, transparent 70%);
+            top: -10%;
+            left: 20%;
+        }
+
+        .bg-glow-2 {
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--burgundy-deep) 0%, transparent 70%);
+            bottom: -20%;
+            right: 15%;
+            animation-delay: -9s;
+        }
+
+        @keyframes moveGlow {
+            0% {
+                transform: translate(0, 0) scale(1);
+            }
+            50% {
+                transform: translate(80px, 60px) scale(1.15);
+            }
+            100% {
+                transform: translate(-60px, 100px) scale(0.9);
+            }
+        }
+
+        /* --- СКЛЯНА КАРТКА --- */
+        .glass-container {
+            position: relative;
+            z-index: 1;
+            background: rgba(28, 14, 19, 0.65);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid var(--border-glass);
+            border-radius: 28px;
+            padding: 40px;
+            width: 100%;
+            max-width: 440px;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
+        }
+
+        /* --- СТИЛІ ЕЛЕМЕНТІВ --- */
+        .title {
+            font-size: 26px;
+            font-weight: 700;
+            text-align: center;
+            color: #ffffff;
+            margin-bottom: 6px;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: var(--text-muted);
+            text-align: center;
+            margin-bottom: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        select {
+            appearance: none;
+            -webkit-appearance: none;
+            background-color: rgba(18, 9, 12, 0.8);
+            background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23ffffff' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 14px;
+            color: #ffffff;
+            font-size: 15px;
+            padding: 14px 16px;
+            width: 100%;
+            outline: none;
+            transition: all 0.25s ease;
+            cursor: pointer;
+        }
+
+        select:focus {
+            border-color: var(--burgundy-accent);
+            box-shadow: 0 0 12px rgba(122, 40, 60, 0.4);
+        }
+
+        .btn-burgundy {
+            background: linear-gradient(135deg, var(--burgundy-btn) 0%, #6e2c3c 100%);
+            color: #ffffff;
+            border: none;
+            border-radius: 14px;
+            padding: 14px 22px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 24px;
+            display: inline-block;
+        }
+
+        .btn-burgundy:hover {
+            background: linear-gradient(135deg, var(--burgundy-btn-hover) 0%, #823547 100%);
+            box-shadow: 0 8px 20px rgba(140, 58, 77, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .btn-burgundy:active {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <!-- Фонові плями анімованого градієнта -->
+    <div class="bg-glow-1"></div>
+    <div class="bg-glow-2"></div>
+
+    <!-- Контент сторінки -->
+    {% block content %}{% endblock %}
+</body>
+</html>

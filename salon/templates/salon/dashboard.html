@@ -1,0 +1,1099 @@
+{% extends 'salon/base.html' %}
+
+{% block content %}
+<div class="glass-container dynamic-gradient-border" style="max-width: 950px; width: 950px; padding: 35px; margin: 20px auto; position: relative; overflow: hidden;">
+    <!-- Декоративний елемент рухомого світлового бліка -->
+    <div class="glow-orb"></div>
+
+    <!-- Шапка -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 1px solid var(--border-glass); padding-bottom: 20px; position: relative; z-index: 2;">
+        <div>
+            <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 4px; letter-spacing: 0.5px;">Anetti Beauty Space</div>
+            <h1 style="font-size: 24px; font-weight: 600; color: #ffffff; text-shadow: 0 2px 10px rgba(0,0,0,0.3);">{{ current_master.name }}</h1>
+        </div>
+        <a href="{% url 'logout' %}" class="btn-burgundy glow-btn" style="padding: 10px 18px; font-size: 13px; text-decoration: none; margin-top: 0;">Змінити майстра</a>
+    </div>
+
+    <!-- МЕНЮ НАВІГАЦІЇ -->
+    <div style="display: flex; gap: 12px; margin-bottom: 30px; flex-wrap: wrap; position: relative; z-index: 2;">
+        <button class="nav-btn active" onclick="switchTab('create-app-tab', this)">➕ Створити запис</button>
+        <button class="nav-btn" onclick="switchTab('all-apps-tab', this)">📅 Перегляд записів</button>
+        <button class="nav-btn" onclick="switchTab('team-tab', this)">👥 Хто працює</button>
+        <button class="nav-btn" onclick="switchTab('breaks-tab', this)">☕ Перерви</button>
+        <button class="nav-btn" onclick="switchTab('days-off-tab', this)">🏖 Вихідні</button>
+        <button class="nav-btn" onclick="switchTab('history-tab', this)">📜 Історія записів</button>
+        <button class="nav-btn" onclick="switchTab('admin-tab', this)">⚙️ Адмінка</button>
+    </div>
+
+    <!-- 1. Вкладка: Створення запису -->
+    <div id="create-app-tab" class="tab-content animated-tab" style="display: block; position: relative; z-index: 2;">
+        <div style="background: rgba(15, 8, 11, 0.65); backdrop-filter: blur(12px); padding: 28px; border-radius: 20px; border: 1px solid var(--border-glass); box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+            <h2 style="font-size: 18px; font-weight: 600; margin-bottom: 20px; color: #ffffff;">Новий запис у блокнот</h2>
+
+            <form method="POST" action="{% url 'add_appointment' %}" onsubmit="return validateForm(event)" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                {% csrf_token %}
+
+                <div>
+                    <label class="form-label">Ім'я клієнта *</label>
+                    <input type="text" class="custom-input" name="client_name" id="client-name-input" placeholder="Наприклад: Анна">
+                    <div class="error-msg" id="err-client-name">Це поле обов'язкове</div>
+                </div>
+
+                <div>
+                    <label class="form-label">Телефон / Контакт (необов'язково)</label>
+                    <input type="text" class="custom-input" name="client_phone" placeholder="097... або @telegram">
+                </div>
+
+                <div>
+                    <label class="form-label">Майстер *</label>
+                    <select class="custom-input" name="master_id" id="master-select" onchange="loadServices(this.value)">
+                        <option value="" disabled selected>Оберіть майстра...</option>
+                        {% for m in active_masters %}
+                            <option value="{{ m.id }}">{{ m.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="error-msg" id="err-master">Оберіть майстра</div>
+                </div>
+
+                <div>
+                    <label class="form-label">Послуга *</label>
+                    <select class="custom-input" name="service_id" id="service-select" disabled>
+                        <option value="" disabled selected>Спочатку оберіть майстра</option>
+                    </select>
+                    <div class="error-msg" id="err-service">Оберіть послугу</div>
+                </div>
+
+                <div>
+                    <label class="form-label">Дата запису *</label>
+                    <input type="date" class="custom-input" name="date" id="appointment-date">
+                    <div class="error-msg" id="err-date">Оберіть дату</div>
+                </div>
+
+                <div>
+                    <label class="form-label">Час запису *</label>
+                    <select class="custom-input" name="start_time" id="start-time-select">
+                        <option value="" disabled selected>Оберіть час...</option>
+                    </select>
+                    <div class="error-msg" id="err-time">Оберіть час</div>
+                </div>
+
+                <div style="grid-column: span 2; margin-top: 10px;">
+                    <button type="submit" class="btn-burgundy glow-btn" style="width: 100%; padding: 16px; font-size: 16px;">Зберегти запис</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 2. Вкладка: Перегляд записів -->
+    <div id="all-apps-tab" class="tab-content animated-tab" style="display: none; position: relative; z-index: 2;">
+        <div style="background: rgba(15, 8, 11, 0.65); backdrop-filter: blur(12px); padding: 28px; border-radius: 20px; border: 1px solid var(--border-glass); box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+            <div style="margin-bottom: 25px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 style="font-size: 18px; font-weight: 600; color: #fff;" id="calendar-month-title">Місяць</h2>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="nav-btn" style="padding: 6px 12px;" onclick="changeMonth(-1)" id="prev-month-btn">◄</button>
+                        <button class="nav-btn" style="padding: 6px 12px;" onclick="changeMonth(1)" id="next-month-btn">►</button>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; color: var(--text-muted); font-size: 12px; font-weight: 600; margin-bottom: 8px;">
+                    <div>ПН</div><div>ВТ</div><div>СР</div><div>ЧТ</div><div>ПТ</div><div>СБ</div><div>НД</div>
+                </div>
+                <div id="days-grid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;"></div>
+            </div>
+            <hr style="border: 0; border-top: 1px solid var(--border-glass); margin: 25px 0;">
+            <div style="margin-bottom: 20px;">
+                <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">Фільтр по майстрах:</div>
+                <div id="masters-filter-container" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
+            </div>
+            <div style="font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 12px;">
+                Розклад на <span id="selected-date-display" style="color: var(--text-muted);">---</span>
+            </div>
+            <div id="time-slots-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; min-height: 150px;"></div>
+        </div>
+    </div>
+
+    <!-- 3. Вкладка: Хто працює -->
+    <div id="team-tab" class="tab-content animated-tab" style="display: none; position: relative; z-index: 2;">
+        <div style="background: rgba(15, 8, 11, 0.65); backdrop-filter: blur(12px); padding: 28px; border-radius: 20px; border: 1px solid var(--border-glass); box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+            <div style="margin-bottom: 25px;">
+                <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Оберіть працівника для перегляду графіку:</div>
+                <div id="team-masters-selector" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
+            </div>
+            <hr style="border: 0; border-top: 1px solid var(--border-glass); margin: 20px 0 25px 0;">
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 style="font-size: 18px; font-weight: 600; color: #fff;" id="team-month-title">Місяць</h2>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="nav-btn" style="padding: 6px 12px;" onclick="changeTeamMonth(-1)" id="team-prev-btn">◄</button>
+                        <button class="nav-btn" style="padding: 6px 12px;" onclick="changeTeamMonth(1)" id="team-next-btn">►</button>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; color: var(--text-muted); font-size: 12px; font-weight: 600; margin-bottom: 8px;">
+                    <div>ПН</div><div>ВТ</div><div>СР</div><div>ЧТ</div><div>ПТ</div><div>СБ</div><div>НД</div>
+                </div>
+                <div id="team-days-grid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. Вкладка: Перерви -->
+    <div id="breaks-tab" class="tab-content animated-tab" style="display: none; position: relative; z-index: 2;">
+        <div style="background: rgba(15, 8, 11, 0.65); backdrop-filter: blur(12px); padding: 28px; border-radius: 20px; border: 1px solid var(--border-glass); box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+            <h2 style="font-size: 18px; font-weight: 600; margin-bottom: 20px; color: #ffffff;">Запланувати перерву для: <span style="color: var(--burgundy-accent, #e11d48);">{{ current_master.name }}</span></h2>
+
+            <form method="POST" action="{% url 'add_break' %}" onsubmit="return validateBreakForm(event)" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 30px;">
+                {% csrf_token %}
+                <div>
+                    <label class="form-label">Дата перерви *</label>
+                    <input type="date" class="custom-input" name="date" id="break-date-input">
+                    <div class="error-msg" id="err-break-date">Оберіть дату</div>
+                </div>
+                <div>
+                    <label class="form-label">Початок перерви *</label>
+                    <select class="custom-input" name="start_time" id="break-start-select">
+                        <option value="" disabled selected>Оберіть час...</option>
+                    </select>
+                    <div class="error-msg" id="err-break-start">Оберіть час початку</div>
+                </div>
+                <div>
+                    <label class="form-label">Кінець перерви *</label>
+                    <select class="custom-input" name="end_time" id="break-end-select">
+                        <option value="" disabled selected>Оберіть час...</option>
+                    </select>
+                    <div class="error-msg" id="err-break-end">Оберіть час кінця</div>
+                </div>
+                <div style="grid-column: span 3; margin-top: 5px;">
+                    <button type="submit" class="btn-burgundy glow-btn" style="width: 100%; padding: 14px; font-size: 15px;">Зберегти перерву ☕</button>
+                </div>
+            </form>
+
+            <hr style="border: 0; border-top: 1px solid var(--border-glass); margin: 25px 0;">
+
+            <h3 style="font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 15px;">Ваші заплановані перерви</h3>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                {% for b in breaks %}
+                    {% if b.master.id == current_master.id %}
+                        <div class="hover-card-effect" style="background: rgba(255,255,255,0.04); border: 1px solid var(--border-glass); border-left: 4px solid #f97316; border-radius: 12px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; transition: all 0.3s ease;">
+                            <div>
+                                <strong style="color: #fff; font-size: 15px;">📅 {{ b.date|date:"d.m.Y" }}</strong>
+                                <div style="color: var(--text-muted); font-size: 13px; margin-top: 3px;">🕒 {{ b.start_time|time:"H:i" }} — {{ b.end_time|time:"H:i" }}</div>
+                            </div>
+                            <a href="{% url 'delete_break' b.id %}" onclick="return confirm('Скасувати цю перерву?')" class="btn-burgundy" style="background: #991b1b; padding: 8px 14px; font-size: 12px; text-decoration: none; border: none; margin: 0;">Скасувати</a>
+                        </div>
+                    {% endif %}
+                {% empty %}
+                    <p style="color: var(--text-muted); font-size: 14px;">У вас ще немає доданих перерв.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. Вкладка: Вихідні -->
+    <div id="days-off-tab" class="tab-content animated-tab" style="display: none; position: relative; z-index: 2;">
+        <div style="background: rgba(15, 8, 11, 0.65); backdrop-filter: blur(12px); padding: 28px; border-radius: 20px; border: 1px solid var(--border-glass); box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+            <h2 style="font-size: 18px; font-weight: 600; margin-bottom: 20px; color: #ffffff;">Запланувати вихідний для: <span style="color: var(--burgundy-accent, #e11d48);">{{ current_master.name }}</span></h2>
+
+            <form method="POST" action="{% url 'add_day_off' %}" onsubmit="return validateDayOffForm(event)" style="display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 30px;">
+                {% csrf_token %}
+                <input type="hidden" name="master_id" value="{{ current_master.id }}">
+                <div>
+                    <label class="form-label">Дата вихідного *</label>
+                    <input type="date" class="custom-input" name="date" id="day-off-date-input">
+                    <div class="error-msg" id="err-day-off-date">Оберіть дату</div>
+                </div>
+
+                <div style="margin-top: 5px;">
+                    <button type="submit" class="btn-burgundy glow-btn" style="background: #991b1b; width: 100%; padding: 14px; font-size: 15px;">Зберегти вихідний 🏖</button>
+                </div>
+            </form>
+
+            <hr style="border: 0; border-top: 1px solid var(--border-glass); margin: 25px 0;">
+
+            <h3 style="font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 15px;">Ваші заплановані вихідні</h3>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                {% for d in days_off %}
+                    {% if d.master.id == current_master.id %}
+                        <div class="hover-card-effect" style="background: rgba(255,255,255,0.04); border: 1px solid var(--border-glass); border-left: 4px solid #ef4444; border-radius: 12px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; transition: all 0.3s ease;">
+                            <div>
+                                <strong style="color: #fff; font-size: 15px;">🏖 Вихідний день</strong>
+                                <div style="color: var(--text-muted); font-size: 13px; margin-top: 3px;">📅 {{ d.date|date:"d.m.Y" }}</div>
+                            </div>
+                            <a href="{% url 'delete_day_off' d.id %}" onclick="return confirm('Скасувати цей вихідний?')" class="btn-burgundy" style="background: #991b1b; padding: 8px 14px; font-size: 12px; text-decoration: none; border: none; margin: 0;">Скасувати</a>
+                        </div>
+                    {% endif %}
+                {% empty %}
+                    <p style="color: var(--text-muted); font-size: 14px;">У вас ще немає доданих вихідних.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 6. Вкладка: Історія записів минулого місяця -->
+    <div id="history-tab" class="tab-content animated-tab" style="display: none; position: relative; z-index: 2;">
+        <div style="background: rgba(15, 8, 11, 0.65); backdrop-filter: blur(12px); padding: 28px; border-radius: 20px; border: 1px solid var(--border-glass); box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+            <h2 style="font-size: 18px; font-weight: 600; margin-bottom: 20px; color: #ffffff;">📜 Історія записів за минулий місяць</h2>
+
+            <div style="display: flex; flex-direction: column; gap: 10px; max-height: 500px; overflow-y: auto; padding-right: 4px;">
+                {% for app in past_month_appointments %}
+                    <div class="hover-card-effect" style="background: rgba(255,255,255,0.04); border: 1px solid var(--border-glass); border-left: 4px solid var(--burgundy-accent, #e11d48); border-radius: 12px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong style="color: #fff; font-size: 15px;">{{ app.client_name }}</strong> <span style="color: var(--text-muted); font-size: 13px;">({{ app.client_phone }})</span>
+                            <div style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">
+                                ✂️ <strong>{{ app.service.name }}</strong> | 👤 Майстер: <strong>{{ app.master.name }}</strong>
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <span style="background: rgba(225, 29, 72, 0.2); color: #f43f5e; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 600;">
+                                📅 {{ app.date|date:"d.m.Y" }} 🕒 {{ app.start_time|time:"H:i" }}
+                            </span>
+                        </div>
+                    </div>
+                {% empty %}
+                    <p style="color: var(--text-muted); font-size: 14px;">Немає записів за минулий місяць.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 7. Вкладка: Адмін-панель -->
+    <div id="admin-tab" class="tab-content animated-tab" style="display: none; position: relative; z-index: 2;">
+        <div style="background: rgba(15, 8, 11, 0.65); backdrop-filter: blur(12px); padding: 28px; border-radius: 20px; border: 1px solid var(--border-glass); box-shadow: 0 10px 30px rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 30px;">
+            <h2 style="font-size: 18px; font-weight: 600; color: #ffffff;">⚙️ Керування салоном</h2>
+
+            <!-- 1. Майстри -->
+            <div>
+                <h3 style="font-size: 15px; color: #fff; margin-bottom: 12px;">👥 Працівники (Майстри)</h3>
+                <form method="POST" action="{% url 'add_master' %}" style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                    {% csrf_token %}
+                    <input type="text" name="name" class="custom-input" placeholder="Ім'я нового майстра" required style="flex: 2; min-width: 200px;">
+                    <select name="specialties" class="custom-input" multiple style="flex: 2; min-width: 200px; height: 48px; padding: 6px 12px;">
+                        {% for spec in specialties %}
+                            <option value="{{ spec.id }}">{{ spec.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn-burgundy glow-btn" style="padding: 10px 20px;">Додати</button>
+                </form>
+                <div style="display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto;">
+                    {% for m in all_masters %}
+                        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); padding: 10px 14px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: #fff;">👤 <strong>{{ m.name }}</strong> ({% for s in m.specialties.all %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% empty %}без спеціальності{% endfor %})</span>
+                            <a href="{% url 'delete_master' m.id %}" onclick="return confirm('Видалити майстра?')" class="btn-burgundy" style="background: #991b1b; padding: 6px 12px; font-size: 12px; text-decoration: none;">Видалити</a>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid var(--border-glass);">
+
+            <!-- 2. Спеціальності -->
+            <div>
+                <h3 style="font-size: 15px; color: #fff; margin-bottom: 12px;">🏷 Спеціальності</h3>
+                <form method="POST" action="{% url 'add_specialty' %}" style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    {% csrf_token %}
+                    <input type="text" name="name" class="custom-input" placeholder="Назва спеціальності (напр. Колорист)" required style="flex: 2;">
+                    <button type="submit" class="btn-burgundy glow-btn" style="padding: 10px 20px;">Додати</button>
+                </form>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                    {% for spec in specialties %}
+                        <div style="background: rgba(255,255,255,0.04); border: 1px solid var(--border-glass); padding: 8px 12px; border-radius: 10px; display: flex; align-items: center; gap: 10px;">
+                            <span style="color: #fff; font-size: 13px;">{{ spec.name }}</span>
+                            <a href="{% url 'delete_specialty' spec.id %}" onclick="return confirm('Видалити спеціальність?')" style="color: #ef4444; text-decoration: none; font-weight: bold; font-size: 14px;">✕</a>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid var(--border-glass);">
+
+            <!-- 3. Послуги -->
+            <div>
+                <h3 style="font-size: 15px; color: #fff; margin-bottom: 12px;">✂️ Послуги</h3>
+                <form method="POST" action="{% url 'add_service' %}" style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                    {% csrf_token %}
+                    <input type="text" name="name" class="custom-input" placeholder="Назва послуги" required style="flex: 2; min-width: 200px;">
+                    <select name="specialty_id" class="custom-input" required style="flex: 1.5; min-width: 150px;">
+                        <option value="" disabled selected>Спеціальність...</option>
+                        {% for spec in specialties %}
+                            <option value="{{ spec.id }}">{{ spec.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn-burgundy glow-btn" style="padding: 10px 20px;">Додати</button>
+                </form>
+                <div style="display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto;">
+                    {% for serv in services %}
+                        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); padding: 10px 14px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: #fff;">✂️ <strong>{{ serv.name }}</strong> <small style="color: var(--text-muted);">({{ serv.specialty.name }})</small></span>
+                            <a href="{% url 'delete_service' serv.id %}" onclick="return confirm('Видалити послугу?')" class="btn-burgundy" style="background: #991b1b; padding: 6px 12px; font-size: 12px; text-decoration: none;">Видалити</a>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальне вікно для деталей часу -->
+<div id="app-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.75); backdrop-filter: blur(12px); z-index: 1000; align-items: center; justify-content: center;">
+    <div class="glass-container modal-animated" style="max-width: 440px; width: 90%; padding: 25px; position: relative; box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
+        <h3 style="font-size: 18px; color: #fff; margin-bottom: 15px;">Деталі на обраний час</h3>
+        <div id="modal-appointments-list" style="max-height: 280px; overflow-y: auto; margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px; padding-right: 4px;"></div>
+        <div style="display: flex; gap: 10px;">
+            <button id="modal-action-btn" onclick="handleModalAction()" class="btn-burgundy glow-btn" style="background: #991b1b; flex: 1; border: none; padding: 12px; cursor: pointer; border-radius: 12px; color: #fff; font-weight: 600;">Скасувати обране</button>
+            <button class="nav-btn" onclick="closeModal()" style="flex: 1;">Закрити</button>
+        </div>
+    </div>
+</div>
+
+<!-- СТИЛІ ТА СКРИПТИ З ВАУ-ЕФЕКТАМИ ТА РУХОМИМ ГРАДІЄНТОМ -->
+<style>
+    html { scroll-behavior: smooth; }
+    body { overflow-y: auto !important; min-height: 100vh; background-color: #0c0608; }
+
+    @keyframes moveGradient {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    .dynamic-gradient-border {
+        background: linear-gradient(60deg, rgba(140, 58, 77, 0.15), rgba(249, 115, 22, 0.1), rgba(122, 40, 60, 0.2));
+        background-size: 300% 300%;
+        animation: moveGradient 12s ease infinite;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: 0 15px 40px rgba(0,0,0,0.4), inset 0 0 20px rgba(255,255,255,0.03);
+    }
+
+    .glow-orb {
+        position: absolute;
+        top: -50px;
+        right: -50px;
+        width: 250px;
+        height: 250px;
+        background: radial-gradient(circle, rgba(225, 29, 72, 0.25) 0%, rgba(0,0,0,0) 70%);
+        border-radius: 50%;
+        animation: orbFloat 8s ease-in-out infinite alternate;
+        pointer-events: none;
+        z-index: 1;
+    }
+
+    @keyframes orbFloat {
+        0% { transform: translateY(0px) scale(1); }
+        100% { transform: translateY(40px) scale(1.2); }
+    }
+
+    .glow-btn {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+    }
+    .glow-btn:hover {
+        box-shadow: 0 0 20px rgba(225, 29, 72, 0.6);
+        transform: translateY(-2px);
+    }
+
+    .hover-card-effect:hover {
+        transform: translateY(-3px);
+        background: rgba(255, 255, 255, 0.07) !important;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    }
+
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 8, 11, 0.6); }
+    ::-webkit-scrollbar-thumb {
+        background: rgba(122, 40, 60, 0.5);
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: all 0.3s ease;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--burgundy-accent, #8c3a4d);
+        box-shadow: 0 0 12px rgba(140, 58, 77, 0.8);
+    }
+
+    .animated-tab { animation: fadeInScale 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    @keyframes fadeInScale {
+        from { opacity: 0; transform: translateY(10px) scale(0.98); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .modal-animated { animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    @keyframes scaleUp {
+        from { opacity: 0; transform: scale(0.9); }
+        to { opacity: 1; transform: scale(1); }
+    }
+
+    .custom-input {
+        background: rgba(18, 9, 12, 0.85) !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        border-radius: 14px !important;
+        color: #ffffff !important;
+        font-size: 15px !important;
+        padding: 13px 16px !important;
+        width: 100% !important;
+        outline: none !important;
+        box-sizing: border-box !important;
+        transition: all 0.3s ease !important;
+        color-scheme: dark;
+    }
+    .custom-input:focus {
+        border-color: var(--burgundy-accent) !important;
+        box-shadow: 0 0 15px rgba(225, 29, 72, 0.4) !important;
+        transform: translateY(-1px);
+    }
+
+    @keyframes pulseRed {
+        0% { border-color: #ef4444; box-shadow: 0 0 0 rgba(239, 68, 68, 0.6); }
+        50% { border-color: #ef4444; box-shadow: 0 0 15px rgba(239, 68, 68, 0.8); }
+        100% { border-color: #ef4444; box-shadow: 0 0 0 rgba(239, 68, 68, 0.6); }
+    }
+    .input-error { animation: pulseRed 0.8s infinite alternate; border-color: #ef4444 !important; }
+    .error-msg { color: #ef4444; font-size: 12px; margin-top: 5px; display: none; font-weight: 500; }
+
+    .nav-btn {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--border-glass);
+        color: var(--text-muted);
+        padding: 12px 20px;
+        border-radius: 14px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .nav-btn:hover { background: rgba(255, 255, 255, 0.1); color: #fff; transform: translateY(-2px); }
+    .nav-btn.active {
+        background: linear-gradient(135deg, var(--burgundy-btn) 0%, #6e2c3c 100%);
+        color: #ffffff;
+        border-color: rgba(255, 255, 255, 0.25);
+        box-shadow: 0 6px 20px rgba(140, 58, 77, 0.45);
+    }
+
+    .day-square {
+        aspect-ratio: 1;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid var(--border-glass);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        color: #fff;
+        cursor: pointer;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .day-square:hover { transform: translateY(-3px) scale(1.05); background: rgba(255,255,255,0.12); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+    .day-square.active-day { border-color: #fff; background: rgba(255,255,255,0.25); font-weight: 700; box-shadow: 0 0 12px rgba(255,255,255,0.2); }
+
+    .day-square.day-working {
+        background: rgba(34, 197, 94, 0.18) !important;
+        border-color: rgba(34, 197, 94, 0.4) !important;
+        color: #4ade80 !important;
+    }
+    .day-square.day-working:hover { background: rgba(34, 197, 94, 0.32) !important; }
+
+    .day-square.day-off {
+        background: rgba(239, 68, 68, 0.18) !important;
+        border-color: rgba(239, 68, 68, 0.4) !important;
+        color: #f87171 !important;
+    }
+    .day-square.day-off:hover { background: rgba(239, 68, 68, 0.32) !important; }
+
+    .time-slot-box.slot-break {
+        background: rgba(249, 115, 22, 0.18) !important;
+        border-color: rgba(249, 115, 22, 0.4) !important;
+        color: #fb923c !important;
+    }
+    .time-slot-box.slot-break:hover {
+        background: rgba(249, 115, 22, 0.32) !important;
+        transform: translateY(-2px) scale(1.03);
+    }
+
+    .time-slot-box {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid var(--border-glass);
+        border-radius: 12px;
+        height: 55px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 6px 8px;
+        cursor: pointer;
+        overflow: hidden;
+        position: relative;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .time-slot-box:hover { transform: translateY(-3px) scale(1.03); background: rgba(255,255,255,0.08); box-shadow: 0 6px 15px rgba(0,0,0,0.3); }
+    .slot-bar-container { display: flex; height: 14px; width: 100%; border-radius: 4px; overflow: hidden; gap: 2px; }
+    .slot-bar { height: 100%; flex: 1; border-radius: 2px; }
+
+    .app-card-item {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--border-glass);
+        border-radius: 12px;
+        padding: 12px;
+        cursor: pointer;
+        transition: all 0.25s ease;
+    }
+    .app-card-item:hover { background: rgba(255, 255, 255, 0.08); transform: translateY(-2px); }
+</style>
+
+<script>
+    let todayDate = new Date();
+    let currentCalDate = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
+    let currentTeamCalDate = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
+
+    let selectedDateStr = formatDate(todayDate);
+
+    let selectedMasterIdForTeam = null;
+    let teamDaysOffData = {};
+    let teamMastersList = [];
+
+    let calendarData = { masters: [], appointments: [], breaks: [] };
+    let activeMasterFilter = "all";
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const timeOptions = [];
+        for (let hour = 8; hour <= 21; hour++) {
+            ['00', '30'].forEach(minute => {
+                if (hour === 21 && minute === '30') return;
+                timeOptions.push(`${hour.toString().padStart(2, '0')}:${minute}`);
+            });
+        }
+
+        const startSelect = document.getElementById('start-time-select');
+        const breakStartSelect = document.getElementById('break-start-select');
+        const breakEndSelect = document.getElementById('break-end-select');
+
+        timeOptions.forEach(timeStr => {
+            if (startSelect) startSelect.appendChild(new Option(timeStr, timeStr));
+            if (breakStartSelect) breakStartSelect.appendChild(new Option(timeStr, timeStr));
+            if (breakEndSelect) breakEndSelect.appendChild(new Option(timeStr, timeStr));
+        });
+
+        const dateInput = document.getElementById('appointment-date');
+        const breakDateInput = document.getElementById('break-date-input');
+        const dayOffDateInput = document.getElementById('day-off-date-input');
+        const yyyy = todayDate.getFullYear();
+        const mm = String(todayDate.getMonth() + 1).padStart(2, '0');
+        const dd = String(todayDate.getDate()).padStart(2, '0');
+        const minDateStr = `${yyyy}-${mm}-${dd}`;
+
+        if (dateInput) dateInput.min = minDateStr;
+        if (breakDateInput) breakDateInput.min = minDateStr;
+        if (dayOffDateInput) dayOffDateInput.min = minDateStr;
+
+        initCalendar();
+    });
+
+    function validateForm(event) {
+        let isValid = true;
+        const fields = [
+            { input: document.getElementById('client-name-input'), err: document.getElementById('err-client-name') },
+            { input: document.getElementById('master-select'), err: document.getElementById('err-master') },
+            { input: document.getElementById('service-select'), err: document.getElementById('err-service') },
+            { input: document.getElementById('appointment-date'), err: document.getElementById('err-date') },
+            { input: document.getElementById('start-time-select'), err: document.getElementById('err-time') }
+        ];
+
+        fields.forEach(f => {
+            if (!f.input.value || f.input.value === "") {
+                f.input.classList.add('input-error');
+                if (f.err) f.err.style.display = 'block';
+                isValid = false;
+            } else {
+                f.input.classList.remove('input-error');
+                if (f.err) f.err.style.display = 'none';
+            }
+        });
+
+        if (!isValid) event.preventDefault();
+        return isValid;
+    }
+
+    function validateBreakForm(event) {
+        let isValid = true;
+        const fields = [
+            { input: document.getElementById('break-date-input'), err: document.getElementById('err-break-date') },
+            { input: document.getElementById('break-start-select'), err: document.getElementById('err-break-start') },
+            { input: document.getElementById('break-end-select'), err: document.getElementById('err-break-end') }
+        ];
+
+        fields.forEach(f => {
+            if (!f.input.value || f.input.value === "") {
+                f.input.classList.add('input-error');
+                if (f.err) f.err.style.display = 'block';
+                isValid = false;
+            } else {
+                f.input.classList.remove('input-error');
+                if (f.err) f.err.style.display = 'none';
+            }
+        });
+
+        const startVal = document.getElementById('break-start-select').value;
+        const endVal = document.getElementById('break-end-select').value;
+        if (startVal && endVal && startVal >= endVal) {
+            alert("Час кінця перерви повинен бути пізніше за час початку!");
+            isValid = false;
+        }
+
+        if (!isValid) event.preventDefault();
+        return isValid;
+    }
+
+    function validateDayOffForm(event) {
+        let isValid = true;
+        const dateInput = document.getElementById('day-off-date-input');
+        const errDiv = document.getElementById('err-day-off-date');
+
+        if (!dateInput.value || dateInput.value === "") {
+            dateInput.classList.add('input-error');
+            if (errDiv) errDiv.style.display = 'block';
+            isValid = false;
+        } else {
+            dateInput.classList.remove('input-error');
+            if (errDiv) errDiv.style.display = 'none';
+        }
+
+        if (!isValid) event.preventDefault();
+        return isValid;
+    }
+
+    function loadServices(masterId) {
+        const serviceSelect = document.getElementById('service-select');
+        serviceSelect.innerHTML = '<option value="" disabled selected>Завантаження послуг...</option>';
+        serviceSelect.disabled = true;
+
+        fetch(`/api/services/${masterId}/`)
+            .then(response => response.json())
+            .then(data => {
+                serviceSelect.innerHTML = '<option value="" disabled selected>Оберіть послугу...</option>';
+                if (data.services.length === 0) {
+                    serviceSelect.innerHTML = '<option value="" disabled>У цього майстра немає послуг</option>';
+                    serviceSelect.disabled = true;
+                } else {
+                    data.services.forEach(service => {
+                        const opt = document.createElement('option');
+                        opt.value = service.id;
+                        opt.textContent = service.name;
+                        serviceSelect.appendChild(opt);
+                    });
+                    serviceSelect.disabled = false;
+                }
+            });
+    }
+
+    /* --- КАЛЕНДАР 1: ПЕРЕГЛЯД ЗАПИСІВ ТА ПЕРЕРВ --- */
+    function initCalendar() {
+        renderCalendarGrid();
+        selectDate(new Date());
+    }
+
+    function renderCalendarGrid() {
+        const grid = document.getElementById('days-grid');
+        if (!grid) return;
+        grid.innerHTML = '';
+
+        const year = currentCalDate.getFullYear();
+        const month = currentCalDate.getMonth();
+
+        const monthTitle = document.getElementById('calendar-month-title');
+        if (monthTitle) monthTitle.textContent = currentCalDate.toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' });
+
+        const diffMonths = (year - todayDate.getFullYear()) * 12 + (month - todayDate.getMonth());
+        document.getElementById('prev-month-btn').style.opacity = diffMonths <= 0 ? '0.3' : '1';
+        document.getElementById('next-month-btn').style.opacity = diffMonths >= 1 ? '0.3' : '1';
+
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        let startDayIndex = firstDay.getDay() - 1;
+        if (startDayIndex === -1) startDayIndex = 6;
+
+        for (let i = 0; i < startDayIndex; i++) grid.appendChild(document.createElement('div'));
+
+        const monthStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+
+        fetch(`/api/calendar-data/?date=${monthStr}&master_id=${activeMasterFilter}`)
+            .then(res => res.json())
+            .then(data => {
+                const daysOff = data.days_off || [];
+
+                for (let day = 1; day <= lastDay.getDate(); day++) {
+                    const btn = document.createElement('div');
+                    btn.className = 'day-square';
+                    btn.textContent = day;
+
+                    const thisDate = new Date(year, month, day);
+                    const dateStr = formatDate(thisDate);
+                    btn.id = `day-btn-${dateStr}`;
+
+                    if (daysOff.includes(dateStr)) {
+                        btn.classList.add('day-off');
+                    }
+
+                    btn.onclick = () => selectDate(thisDate);
+                    grid.appendChild(btn);
+                }
+
+                const activeBtn = document.getElementById(`day-btn-${selectedDateStr}`);
+                if (activeBtn) activeBtn.classList.add('active-day');
+            })
+            .catch(err => {
+                console.error("Помилка завантаження календаря:", err);
+                for (let day = 1; day <= lastDay.getDate(); day++) {
+                    const btn = document.createElement('div');
+                    btn.className = 'day-square';
+                    btn.textContent = day;
+                    const thisDate = new Date(year, month, day);
+                    const dateStr = formatDate(thisDate);
+                    btn.id = `day-btn-${dateStr}`;
+                    btn.onclick = () => selectDate(thisDate);
+                    grid.appendChild(btn);
+                }
+            });
+    }
+
+    function changeMonth(delta) {
+        const newMonth = new Date(currentCalDate.getFullYear(), currentCalDate.getMonth() + delta, 1);
+        const diff = (newMonth.getFullYear() - todayDate.getFullYear()) * 12 + (newMonth.getMonth() - todayDate.getMonth());
+
+        if (diff >= 0 && diff <= 1) {
+            currentCalDate = newMonth;
+            renderCalendarGrid();
+        }
+    }
+
+    function selectDate(dateObj) {
+        selectedDateStr = formatDate(dateObj);
+        document.querySelectorAll('#days-grid .day-square').forEach(el => el.classList.remove('active-day'));
+        const activeBtn = document.getElementById(`day-btn-${selectedDateStr}`);
+        if (activeBtn) activeBtn.classList.add('active-day');
+
+        const dateDisplay = document.getElementById('selected-date-display');
+        if (dateDisplay) dateDisplay.textContent = dateObj.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
+
+        fetch(`/api/calendar-data/?date=${selectedDateStr}&master_id=${activeMasterFilter}`)
+            .then(res => res.json())
+            .then(data => {
+                calendarData = data;
+                renderMastersFilter();
+                renderTimeSlots();
+            });
+    }
+
+    function renderMastersFilter() {
+        const container = document.getElementById('masters-filter-container');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const allBtn = document.createElement('button');
+        allBtn.className = `nav-btn ${activeMasterFilter === 'all' ? 'active' : ''}`;
+        allBtn.textContent = '👥 Усі майстри';
+        allBtn.onclick = () => {
+            activeMasterFilter = 'all';
+            renderMastersFilter();
+            renderTimeSlots();
+            renderCalendarGrid();
+        };
+        container.appendChild(allBtn);
+
+        (calendarData.masters || []).forEach(m => {
+            const btn = document.createElement('button');
+            btn.className = 'nav-btn';
+            btn.style.display = 'flex';
+            btn.style.alignItems = 'center';
+            btn.style.gap = '6px';
+
+            if (String(activeMasterFilter) === String(m.id)) {
+                btn.style.background = m.color;
+                btn.style.color = '#fff';
+            } else {
+                btn.style.borderLeft = `4px solid ${m.color}`;
+            }
+
+            btn.innerHTML = `<span>●</span> ${m.name}`;
+            btn.onclick = () => {
+                activeMasterFilter = m.id;
+                renderMastersFilter();
+                renderTimeSlots();
+                renderCalendarGrid();
+            };
+            container.appendChild(btn);
+        });
+    }
+
+    function renderTimeSlots() {
+        const grid = document.getElementById('time-slots-grid');
+        if (!grid) return;
+        grid.innerHTML = '';
+
+        function timeToMinutes(tStr) {
+            if (!tStr) return 0;
+            const cleanStr = String(tStr).substring(0, 5);
+            const parts = cleanStr.split(':');
+            return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+        }
+
+        for (let hour = 8; hour <= 21; hour++) {
+            ['00', '30'].forEach(minute => {
+                if (hour === 21 && minute === '30') return;
+                const timeStr = `${hour.toString().padStart(2, '0')}:${minute}`;
+                const slotMinutes = timeToMinutes(timeStr);
+
+                let appsOnSlot = (calendarData.appointments || []).filter(a => {
+                    const appTime = String(a.start_time).substring(0, 5);
+                    return appTime === timeStr;
+                });
+
+                let breaksOnSlot = (calendarData.breaks || []).filter(b => {
+                    const startMin = timeToMinutes(b.start_time);
+                    const endMin = timeToMinutes(b.end_time);
+                    return slotMinutes >= startMin && slotMinutes < endMin;
+                });
+
+                if (activeMasterFilter !== 'all') {
+                    appsOnSlot = appsOnSlot.filter(a => String(a.master_id) === String(activeMasterFilter));
+                    breaksOnSlot = breaksOnSlot.filter(b => String(b.master_id) === String(activeMasterFilter));
+                }
+
+                const slotBox = document.createElement('div');
+                slotBox.className = 'time-slot-box';
+
+                const allItemsOnSlot = [...appsOnSlot, ...breaksOnSlot];
+
+                const hasBreak = breaksOnSlot.length > 0;
+                if (hasBreak) {
+                    slotBox.classList.add('slot-break');
+                }
+
+                const timeLabel = document.createElement('div');
+                timeLabel.style.fontSize = '12px';
+                timeLabel.style.color = hasBreak ? '#fb923c' : 'var(--text-muted)';
+                timeLabel.textContent = timeStr;
+                slotBox.appendChild(timeLabel);
+
+                const barContainer = document.createElement('div');
+                barContainer.className = 'slot-bar-container';
+
+                if (allItemsOnSlot.length > 0) {
+                    allItemsOnSlot.forEach(item => {
+                        if (item.type !== 'break') {
+                            const bar = document.createElement('div');
+                            bar.className = 'slot-bar';
+                            bar.style.background = item.color || '#e11d48';
+                            barContainer.appendChild(bar);
+                        }
+                    });
+                    slotBox.onclick = () => openModal(allItemsOnSlot);
+                }
+
+                slotBox.appendChild(barContainer);
+                grid.appendChild(slotBox);
+            });
+        }
+    }
+
+    /* --- КАЛЕНДАР 2: ХТО ПРАЦЮЄ --- */
+    function initTeamCalendar() {
+        fetch('/api/team-schedule/')
+            .then(res => res.json())
+            .then(data => {
+                teamMastersList = data.masters || [];
+                teamDaysOffData = data.days_off_map || {};
+
+                if (!selectedMasterIdForTeam && teamMastersList.length > 0) {
+                    selectedMasterIdForTeam = teamMastersList[0].id;
+                }
+
+                renderTeamMastersButtons();
+                renderTeamCalendarGrid();
+            })
+            .catch(err => console.error("Помилка завантаження графіку колективу:", err));
+    }
+
+    function renderTeamMastersButtons() {
+        const container = document.getElementById('team-masters-selector');
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (teamMastersList.length === 0) {
+            container.innerHTML = '<span style="color: var(--text-muted); font-size: 13px;">Немає активних майстрів</span>';
+            return;
+        }
+
+        teamMastersList.forEach(m => {
+            const btn = document.createElement('button');
+            const isSelected = String(selectedMasterIdForTeam) === String(m.id);
+
+            btn.className = `nav-btn ${isSelected ? 'active' : ''}`;
+            btn.style.display = 'flex';
+            btn.style.alignItems = 'center';
+            btn.style.gap = '8px';
+
+            if (isSelected) {
+                btn.style.background = m.color || 'var(--burgundy-btn)';
+                btn.style.color = '#fff';
+            } else {
+                btn.style.borderLeft = `4px solid ${m.color || '#fff'}`;
+            }
+
+            btn.innerHTML = `<span>👤</span> ${m.name}`;
+            btn.onclick = () => {
+                selectedMasterIdForTeam = m.id;
+                renderTeamMastersButtons();
+                renderTeamCalendarGrid();
+            };
+            container.appendChild(btn);
+        });
+    }
+
+    function renderTeamCalendarGrid() {
+        const grid = document.getElementById('team-days-grid');
+        if (!grid) return;
+        grid.innerHTML = '';
+
+        const year = currentTeamCalDate.getFullYear();
+        const month = currentTeamCalDate.getMonth();
+
+        const monthTitle = document.getElementById('team-month-title');
+        if (monthTitle) {
+            monthTitle.textContent = currentTeamCalDate.toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' });
+        }
+
+        const diffMonths = (year - todayDate.getFullYear()) * 12 + (month - todayDate.getMonth());
+        const prevBtn = document.getElementById('team-prev-btn');
+        const nextBtn = document.getElementById('team-next-btn');
+        if (prevBtn) prevBtn.style.opacity = diffMonths <= 0 ? '0.3' : '1';
+        if (nextBtn) nextBtn.style.opacity = diffMonths >= 1 ? '0.3' : '1';
+
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        let startDayIndex = firstDay.getDay() - 1;
+        if (startDayIndex === -1) startDayIndex = 6;
+
+        for (let i = 0; i < startDayIndex; i++) {
+            grid.appendChild(document.createElement('div'));
+        }
+
+        const masterDaysOff = teamDaysOffData[selectedMasterIdForTeam] || teamDaysOffData[String(selectedMasterIdForTeam)] || [];
+
+        for (let day = 1; day <= lastDay.getDate(); day++) {
+            const btn = document.createElement('div');
+            btn.className = 'day-square';
+            btn.textContent = day;
+
+            const thisDate = new Date(year, month, day);
+            const dateStr = formatDate(thisDate);
+
+            if (masterDaysOff.includes(dateStr)) {
+                btn.classList.add('day-off');
+            } else {
+                btn.classList.add('day-working');
+            }
+
+            grid.appendChild(btn);
+        }
+    }
+
+    function changeTeamMonth(delta) {
+        const newMonth = new Date(currentTeamCalDate.getFullYear(), currentTeamCalDate.getMonth() + delta, 1);
+        const diff = (newMonth.getFullYear() - todayDate.getFullYear()) * 12 + (newMonth.getMonth() - todayDate.getMonth());
+
+        if (diff >= 0 && diff <= 1) {
+            currentTeamCalDate = newMonth;
+            renderTeamCalendarGrid();
+        }
+    }
+
+    /* --- МОДАЛЬНЕ ВІКНО ДЛЯ СЛОТІВ ЧАСУ --- */
+    function openModal(items) {
+        const listContainer = document.getElementById('modal-appointments-list');
+        listContainer.innerHTML = '';
+
+        if (!Array.isArray(items)) items = [items];
+
+        items.forEach((item, index) => {
+            const card = document.createElement('div');
+            card.className = 'app-card-item';
+
+            if (item.type === 'break') {
+                card.style.borderLeft = `4px solid #f97316`;
+                card.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <strong style="color: #f97316; font-size: 15px;">☕ Перерва</strong>
+                        <input type="radio" name="cancel_item_radio" data-type="break" value="${item.id}" ${index === 0 ? 'checked' : ''} style="accent-color: #f97316; cursor: pointer; transform: scale(1.2);">
+                    </div>
+                    <p style="font-size: 13px; color: var(--text-muted); margin: 3px 0;"><strong>👤 Майстер:</strong> ${item.master_name}</p>
+                    <p style="font-size: 13px; color: var(--text-muted); margin: 3px 0;"><strong>🕒 Інтервал:</strong> ${item.start_time} — ${item.end_time}</p>
+                `;
+                card.onclick = () => { card.querySelector('input[type="radio"]').checked = true; };
+            } else {
+                card.style.borderLeft = `4px solid ${item.color || '#ef4444'}`;
+                card.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <strong style="color: #fff; font-size: 15px;">${item.client_name}</strong>
+                        <input type="radio" name="cancel_item_radio" data-type="appointment" value="${item.id}" ${index === 0 ? 'checked' : ''} style="accent-color: var(--burgundy-accent, #8c3a4d); cursor: pointer; transform: scale(1.2);">
+                    </div>
+                    <p style="font-size: 13px; color: var(--text-muted); margin: 3px 0;"><strong>📞 Контакт:</strong> ${item.client_phone}</p>
+                    <p style="font-size: 13px; color: var(--text-muted); margin: 3px 0;"><strong>✂️ Послуга:</strong> ${item.service_name}</p>
+                    <p style="font-size: 13px; color: var(--text-muted); margin: 3px 0;"><strong>👤 Майстер:</strong> <span style="color: ${item.color}; font-weight: 600;">●</span> ${item.master_name}</p>
+                    <p style="font-size: 13px; color: var(--text-muted); margin: 3px 0;"><strong>🕒 Час:</strong> ${item.start_time}</p>
+                `;
+                card.onclick = () => { card.querySelector('input[type="radio"]').checked = true; };
+            }
+
+            listContainer.appendChild(card);
+        });
+
+        document.getElementById('app-modal').style.display = 'flex';
+    }
+
+    function handleModalAction() {
+        const selectedRadio = document.querySelector('input[name="cancel_item_radio"]:checked');
+        if (!selectedRadio) {
+            alert('Оберіть пункт для скасування!');
+            return;
+        }
+
+        const type = selectedRadio.getAttribute('data-type');
+        const id = selectedRadio.value;
+
+        if (type === 'break') {
+            if (confirm('Ви дійсно хочете скасувати цю перерву?')) {
+                window.location.href = `/breaks/delete/${id}/`;
+            }
+        } else {
+            if (confirm('Ви дійсно хочете скасувати цей запис?')) {
+                window.location.href = `/appointment/cancel/${id}/`;
+            }
+        }
+    }
+
+    function closeModal() { document.getElementById('app-modal').style.display = 'none'; }
+
+    function formatDate(d) {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+
+    function switchTab(tabId, btnElement) {
+        document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+
+        const targetTab = document.getElementById(tabId);
+        targetTab.style.display = 'block';
+
+        targetTab.classList.remove('animated-tab');
+        void targetTab.offsetWidth;
+        targetTab.classList.add('animated-tab');
+
+        btnElement.classList.add('active');
+
+        if (tabId === 'all-apps-tab') {
+            initCalendar();
+        } else if (tabId === 'team-tab') {
+            initTeamCalendar();
+        }
+    }
+</script>
+{% endblock %}
