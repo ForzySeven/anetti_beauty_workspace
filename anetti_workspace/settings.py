@@ -84,10 +84,8 @@ DATABASES = {
 }
 
 # Автоматичне перемикання на PostgreSQL, якщо на Render задано DATABASE_URL
-DATABASE_URL = os.environ.get("postgresql://anetti_db_user:uspMpMPJFfigDfwuhaY3l5pBqEfTOFnZ@dpg-dbnp3gm417fc73ec5bv0-a/anetti_db")
-if DATABASE_URL:
+if os.environ.get('DATABASE_URL'):
     DATABASES['default'] = dj_database_url.config(
-        default=DATABASE_URL,
         conn_max_age=600,
         conn_health_checks_enabled=True,
     )
